@@ -1,0 +1,38 @@
+[package]
+name = "aura"
+version = "0.1.0"
+description = "AURA — Universal Windows Mini Media Player"
+authors = ["AURA Team"]
+edition = "2021"
+rust-version = "1.80"
+
+[lib]
+name = "aura_lib"
+crate-type = ["staticlib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.7.4" }
+
+[dependencies]
+tauri = { version = "2.12.5", features = ["tray-icon"] }
+tauri-plugin-log = "2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.26"
+futures-util = "0.3"
+base64 = "0.22"
+log = "0.4"
+window-vibrancy = "0.8"
+
+[dependencies.windows]
+version = "0.58"
+features = [
+    "Media_Control",
+    "Storage_Streams",
+    "Foundation",
+    "Foundation_Collections",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Foundation",
+    "Win32_Graphics_Dwm"
+]
