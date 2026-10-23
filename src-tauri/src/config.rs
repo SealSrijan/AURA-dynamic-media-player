@@ -45,3 +45,27 @@ fn dirs_or_fallback() -> PathBuf {
         std::env::temp_dir().join("AURA")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_config_values() {
+        let default = AuraConfig::default();
+        assert_eq!(default.theme, "dark-glass");
+        assert_eq!(default.accent_color, "amber");
+        assert_eq!(default.player_mode, "island");
+        assert!(default.always_on_top);
+        assert!(default.hover_expand);
+    }
+
+    #[test]
+    fn test_config_serialization() {
+        let config = AuraConfig::default();
+        let serialized = serde_json::to_string(&config).expect("Serialize AuraConfig");
+        let deserialized: AuraConfig = serde_json::from_str(&serialized).expect("Deserialize AuraConfig");
+        assert_eq!(deserialized.theme, config.theme);
+        assert_eq!(deserialized.accent_color, config.accent_color);
+    }
+}

@@ -46,59 +46,28 @@ export const TaskbarPlayer: React.FC<TaskbarPlayerProps> = ({
 
   const handleDragMouseDown = async (e: React.MouseEvent) => {
     if (e.button !== 0) return;
-
     try {
-      await invoke('start_dragging');
+      await getCurrentWindow().startDragging();
+      const win = getCurrentWindow();
+      const pos = await win.outerPosition();
+      const factor = await win.scaleFactor();
+      await invoke('save_position', {
+        x: Math.round(pos.x / factor),
+        y: Math.round(pos.y / factor),
+      });
     } catch {
       // Fallback
     }
-
-    let lastX = e.screenX;
-    let lastY = e.screenY;
-
-    const handleMouseMove = async (moveEvent: MouseEvent) => {
-      const deltaX = moveEvent.screenX - lastX;
-      const deltaY = moveEvent.screenY - lastY;
-      lastX = moveEvent.screenX;
-      lastY = moveEvent.screenY;
-
-      if (Math.abs(deltaX) > 0 || Math.abs(deltaY) > 0) {
-        try {
-          await invoke('move_window', { deltaX, deltaY });
-        } catch {
-          // Fallback
-        }
-      }
-    };
-
-    const handleMouseUp = async () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      try {
-        const win = getCurrentWindow();
-        const pos = await win.outerPosition();
-        const factor = await win.scaleFactor();
-        await invoke('save_position', {
-          x: Math.round(pos.x / factor),
-          y: Math.round(pos.y / factor),
-        });
-      } catch {
-        // Fallback
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
   };
 
   const isLight = theme === 'light-frost';
 
   return (
-    <div className="w-full h-full flex items-center justify-center p-0 m-0 bg-transparent overflow-hidden">
+    <div className="w-full h-full flex items-center justify-center p-0 m-0 bg-transparent overflow-hidden pointer-events-none">
       <div
         data-tauri-drag-region
         onMouseDown={handleDragMouseDown}
-        className="group relative flex items-center justify-between w-[276px] h-[38px] px-2.5 py-1 gap-2 rounded-[14px] backdrop-blur-[36px] backdrop-saturate-[220%] select-none cursor-grab active:cursor-grabbing transition-all duration-200"
+        className="pointer-events-auto group relative flex items-center justify-between w-[276px] h-[38px] px-2.5 py-1 gap-2 rounded-[14px] backdrop-blur-[36px] backdrop-saturate-[220%] select-none cursor-grab active:cursor-grabbing transition-all duration-200"
         style={{
           background: isLight
             ? `linear-gradient(135deg, rgba(255, 255, 255, ${opacity}) 0%, rgba(240, 244, 252, ${opacity}) 100%)`

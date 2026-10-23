@@ -49,7 +49,7 @@ function connectWebSocket() {
       console.warn('[AURA Extension] WebSocket error:', err);
       socket.close();
     };
-  } catch (e) {
+  } catch {
     scheduleReconnect();
   }
 }
@@ -97,6 +97,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
   }
   return true;
+});
+
+// Track tab closure to clear state immediately
+chrome.tabs.onRemoved.addListener((tabId) => {
+  if (tabId === activeMediaTabId) {
+    activeMediaTabId = null;
+    currentMediaState = null;
+    sendToAura({
+      type: 'browser_media_update',
+      data: {
+        title: '',
+        artist: '',
+        album: '',
+        artwork: '',
+        playing: false,
+        currentTime: 0,
+        duration: 0,
+        source: 'Browser'
+      }
+    });
+  }
 });
 
 // Start connection

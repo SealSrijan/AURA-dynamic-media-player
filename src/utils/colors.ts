@@ -59,7 +59,7 @@ export async function extractDominantColor(imageUrl: string): Promise<string | n
         } else {
           resolve(null);
         }
-      } catch (_) {
+      } catch {
         resolve(null);
       }
     };

@@ -125,13 +125,26 @@ async fn run_server(
                                         if msg.r#type == "browser_media_update" {
                                             if let Some(payload) = msg.data {
                                                 let is_playing = payload.playing.unwrap_or(false);
-                                                let title = payload.title.unwrap_or_default();
-                                                let artist = payload.artist.unwrap_or_default();
-                                                let album = payload.album.unwrap_or_default();
-                                                let artwork = payload.artwork;
-                                                let position_ms = payload.current_time.unwrap_or(0) * 1000;
-                                                let duration_ms = payload.duration.unwrap_or(0) * 1000;
-                                                let source = payload.source.unwrap_or_else(|| "Browser".to_string());
+                                                let raw_title = payload.title.unwrap_or_default();
+                                                let title = raw_title.trim();
+                                                let title = if title.len() > 256 { title[..256].to_string() } else { title.to_string() };
+
+                                                let raw_artist = payload.artist.unwrap_or_default();
+                                                let artist = raw_artist.trim();
+                                                let artist = if artist.len() > 256 { artist[..256].to_string() } else { artist.to_string() };
+
+                                                let raw_album = payload.album.unwrap_or_default();
+                                                let album = raw_album.trim();
+                                                let album = if album.len() > 256 { album[..256].to_string() } else { album.to_string() };
+
+                                                let artwork = payload.artwork.filter(|a| !a.trim().is_empty());
+                                                let raw_pos = payload.current_time.unwrap_or(0);
+                                                let raw_dur = payload.duration.unwrap_or(0);
+                                                let duration_ms = raw_dur.saturating_mul(1000);
+                                                let position_ms = raw_pos.saturating_mul(1000).min(if duration_ms > 0 { duration_ms } else { u64::MAX });
+
+                                                let raw_source = payload.source.unwrap_or_else(|| "Browser".to_string());
+                                                let source = raw_source.trim().to_string();
 
                                                 let now_ms = SystemTime::now()
                                                     .duration_since(UNIX_EPOCH)
@@ -179,8 +192,42 @@ async fn run_server(
                 }
 
                 connected_ref.store(false, Ordering::Relaxed);
-                log::info!("Browser Companion Extension disconnected.");
+                // Clear state on disconnect so phantom/ghost tracks do not linger
+                *state_ref.write().await = None;
+                log::info!("Browser Companion Extension disconnected. Cleared media state.");
             }
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_browser_message_deserialization() {
+        let json = r#"{
+            "type": "browser_media_update",
+            "data": {
+                "title": "Starboy",
+                "artist": "The Weeknd",
+                "album": "Starboy",
+                "artwork": "https://example.com/art.jpg",
+                "playing": true,
+                "currentTime": 45,
+                "duration": 230,
+                "source": "youtube.com"
+            }
+        }"#;
+
+        let msg: Result<BrowserMessage, _> = serde_json::from_str(json);
+        assert!(msg.is_ok());
+        let msg = msg.unwrap();
+        assert_eq!(msg.r#type, "browser_media_update");
+        assert!(msg.data.is_some());
+        let data = msg.data.unwrap();
+        assert_eq!(data.title.as_deref(), Some("Starboy"));
+        assert_eq!(data.current_time, Some(45));
+        assert_eq!(data.playing, Some(true));
     }
 }

@@ -8,7 +8,7 @@ rust-version = "1.80"
 
 [lib]
 name = "aura_lib"
-crate-type = ["staticlib", "rlib"]
+crate-type = ["rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2.7.4" }

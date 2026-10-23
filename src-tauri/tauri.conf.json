@@ -10,8 +10,8 @@
     "windows": [
       {
         "title": "AURA",
-        "width": 360,
-        "height": 74,
+        "width": 256,
+        "height": 48,
         "resizable": true,
         "fullscreen": false,
         "decorations": false,

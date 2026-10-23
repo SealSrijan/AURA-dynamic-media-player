@@ -115,7 +115,7 @@
     lastReportedState = state;
     try {
       chrome.runtime.sendMessage({ type: 'MEDIA_STATE_UPDATE', payload: state });
-    } catch (_) {
+    } catch {
       // Extension context invalidated
     }
   }

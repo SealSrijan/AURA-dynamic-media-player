@@ -61,7 +61,10 @@ export const App: React.FC = () => {
   // Keyboard shortcut listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+      if (
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName) ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
         return;
       }
 
@@ -86,7 +89,7 @@ export const App: React.FC = () => {
   }, [togglePlayPause, nextTrack, prevTrack, currentMode, switchMode, config.player_mode]);
 
   return (
-    <main className="w-screen h-screen flex items-center justify-center p-0 m-0 bg-transparent overflow-hidden">
+    <main className="w-screen h-screen flex items-center justify-center p-0 m-0 bg-transparent overflow-hidden pointer-events-none select-none">
       {/* 1. Dynamic Island Mode (Flagship Floating Desktop Capsule) */}
       {(currentMode === 'island' || currentMode === 'compact') && (
         <DynamicIsland

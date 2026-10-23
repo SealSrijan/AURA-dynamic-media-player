@@ -42,21 +42,23 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             "mode_island" => {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
-                    let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width: 390.0, height: 56.0 }));
+                    let (w, h) = crate::commands::get_mode_dimensions("island", "standard", false);
+                    let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width: w, height: h }));
                     let _ = window.emit("change_mode", "island");
                 }
             }
             "mode_taskbar" => {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
-                    let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width: 280.0, height: 42.0 }));
+                    let (w, h) = crate::commands::get_mode_dimensions("taskbar", "standard", false);
+                    let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width: w, height: h }));
                     if let Ok(Some(monitor)) = window.current_monitor() {
                         let scale = monitor.scale_factor();
                         let screen_w = monitor.size().width as f64 / scale;
                         let screen_h = monitor.size().height as f64 / scale;
                         let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition {
-                            x: screen_w - 280.0 - 200.0,
-                            y: screen_h - 42.0 - 3.0,
+                            x: screen_w - w - 200.0,
+                            y: screen_h - h - 3.0,
                         }));
                     }
                     let _ = window.emit("change_mode", "taskbar");
@@ -65,19 +67,21 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             "mode_expanded" => {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
-                    let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width: 360.0, height: 270.0 }));
+                    let (w, h) = crate::commands::get_mode_dimensions("expanded", "standard", false);
+                    let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width: w, height: h }));
                     let _ = window.emit("change_mode", "expanded");
                 }
             }
             "reset_position" => {
                 if let Some(window) = app.get_webview_window("main") {
+                    let (w, h) = crate::commands::get_mode_dimensions("island", "standard", false);
                     if let Ok(Some(monitor)) = window.current_monitor() {
                         let scale = monitor.scale_factor();
                         let screen_w = monitor.size().width as f64 / scale;
-                        let x = (screen_w - 390.0) / 2.0;
-                        let y = 32.0;
+                        let x = (screen_w - w) / 2.0;
+                        let y = 28.0;
                         let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
-                        let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width: 390.0, height: 56.0 }));
+                        let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width: w, height: h }));
                         let _ = window.emit("change_mode", "island");
                     }
                 }
@@ -85,7 +89,8 @@ pub fn setup_tray(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             "open_settings" => {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
-                    let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width: 420.0, height: 480.0 }));
+                    let (w, h) = crate::commands::get_mode_dimensions("settings", "standard", false);
+                    let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width: w, height: h }));
                     let _ = window.emit("change_mode", "settings");
                 }
             }

@@ -162,7 +162,7 @@ AURA
 2. **Rust & Cargo** (v1.80 or newer)
 3. **C++ Toolchain**: Either MSVC (Visual Studio Build Tools) or MinGW-w64 (GCC 14+).
 
-### Step-by-Step Build
+### Step-by-Step Build & Verification
 
 ```powershell
 # 1. Clone or navigate to the repository
@@ -171,16 +171,22 @@ cd C:\Users\<Username>\Desktop\AURA
 # 2. Install frontend dependencies
 npm install
 
-# 3. Build frontend production assets
+# 3. Run frontend unit tests
+npm test
+
+# 4. Build frontend production assets
 npm run build
 
-# 4. Build the Rust release executable
+# 5. Build the Rust release executable
 cd src-tauri
 cargo build --release
+
+# 6. Run automated backend regression suite
+target\release\aura.exe --run-tests
 ```
 
 The optimized binary will be created at:  
-`src-tauri/target/release/aura.exe`
+`src-tauri/target/release/aura.exe` (copied to `release-binary/AURA.exe`).
 
 *(Note for MinGW environments: Ensure GNU Binutils and MinGW `x86_64-w64-mingw32` are in your `PATH` before invoking `cargo build`).*
 

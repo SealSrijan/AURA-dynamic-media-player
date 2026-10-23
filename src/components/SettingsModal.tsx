@@ -14,6 +14,7 @@ import {
   Info,
   Sparkles,
 } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { AuraConfig, Theme, AccentColor, PlayerMode } from '../types/media';
 
@@ -79,6 +80,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     try {
       const win = getCurrentWindow();
       await win.startDragging();
+      const pos = await win.outerPosition();
+      const factor = await win.scaleFactor();
+      await invoke('save_position', {
+        x: Math.round(pos.x / factor),
+        y: Math.round(pos.y / factor),
+      });
     } catch {
       // Fallback
     }
@@ -87,11 +94,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const isLight = config.theme === 'light-frost';
 
   return (
-    <div className="w-full h-full flex items-center justify-center p-0 m-0 bg-transparent overflow-hidden">
+    <div className="w-full h-full flex items-center justify-center p-0 m-0 bg-transparent overflow-hidden pointer-events-none">
       <div
         data-tauri-drag-region
         onMouseDown={handleDragMouseDown}
-        className="group relative flex flex-col w-[410px] h-[470px] p-4 rounded-[26px] backdrop-blur-[36px] backdrop-saturate-[220%] select-none transition-all duration-200 text-white text-[12px]"
+        className="pointer-events-auto group relative flex flex-col w-[410px] h-[470px] p-4 rounded-[26px] backdrop-blur-[36px] backdrop-saturate-[220%] select-none transition-all duration-200 text-white text-[12px]"
         style={{
           background: isLight
             ? `linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgba(240, 244, 252, 0.92) 100%)`

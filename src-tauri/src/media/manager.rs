@@ -171,3 +171,16 @@ fn is_same_track(a: &str, b: &str) -> bool {
     let b_clean = b.to_lowercase().replace(' ', "");
     a_clean.contains(&b_clean) || b_clean.contains(&a_clean)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_same_track() {
+        assert!(is_same_track("Blinding Lights", "Blinding Lights - Single"));
+        assert!(is_same_track("Starboy (feat. Daft Punk)", "Starboy"));
+        assert!(!is_same_track("Song A", "Song B"));
+        assert!(!is_same_track("", "Song B"));
+    }
+}

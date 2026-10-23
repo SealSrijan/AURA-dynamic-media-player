@@ -18,20 +18,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (res.media && res.media.title) {
-      const artSrc = res.media.artwork || 'icons/icon48.png';
       container.className = 'media-card';
-      container.innerHTML = `
-        <img src="${artSrc}" class="artwork" onerror="this.style.display='none'">
-        <div class="info">
-          <div class="track-title">${escapeHtml(res.media.title)}</div>
-          <div class="track-artist">${escapeHtml(res.media.artist || res.media.source)}</div>
-        </div>
-      `;
+      container.textContent = ''; // clear previous
+
+      const img = document.createElement('img');
+      img.className = 'artwork';
+      const artSrc = res.media.artwork || 'icons/icon48.png';
+      if (/^(https?:\/\/|data:image\/|icons\/)/i.test(artSrc)) {
+        img.src = artSrc;
+      } else {
+        img.src = 'icons/icon48.png';
+      }
+      img.onerror = () => { img.style.display = 'none'; };
+
+      const infoDiv = document.createElement('div');
+      infoDiv.className = 'info';
+
+      const titleDiv = document.createElement('div');
+      titleDiv.className = 'track-title';
+      titleDiv.textContent = res.media.title;
+
+      const artistDiv = document.createElement('div');
+      artistDiv.className = 'track-artist';
+      artistDiv.textContent = res.media.artist || res.media.source || '';
+
+      infoDiv.appendChild(titleDiv);
+      infoDiv.appendChild(artistDiv);
+
+      container.appendChild(img);
+      container.appendChild(infoDiv);
     }
   });
-
-  function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
 });

@@ -55,8 +55,8 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   const songTitle = media.title || 'Dynamic Island';
 
   // Capsule default compact width based on user preference
-  const compactWidth = capsuleSize === 'compact' ? 220 : capsuleSize === 'large' ? 276 : 248;
-  const expandedWidth = 376;
+  const compactWidth = capsuleSize === 'compact' ? 228 : capsuleSize === 'large' ? 284 : 256;
+  const expandedWidth = 380;
   const currentWidth = isHovered && hoverExpand ? expandedWidth : compactWidth;
 
   const handleMouseEnter = () => {
@@ -65,12 +65,18 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
       hoverTimerRef.current = null;
     }
     setIsHovered(true);
+    if (hoverExpand) {
+      invoke('set_island_hover', { expanded: true }).catch(console.warn);
+    }
   };
 
   const handleMouseLeave = () => {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     hoverTimerRef.current = setTimeout(() => {
       setIsHovered(false);
+      if (hoverExpand) {
+        invoke('set_island_hover', { expanded: false }).catch(console.warn);
+      }
     }, hoverDelayMs);
   };
 
@@ -80,54 +86,22 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
     };
   }, []);
 
-  // Native window dragging handler on the entire pill (with smooth mousemove fallback)
+  // Single authoritative native OS dragging handler
   const handleDragMouseDown = async (e: React.MouseEvent) => {
     if (e.button !== 0) return;
 
-    // 1. Trigger native OS dragging
     try {
-      await invoke('start_dragging');
+      await getCurrentWindow().startDragging();
+      const win = getCurrentWindow();
+      const pos = await win.outerPosition();
+      const factor = await win.scaleFactor();
+      await invoke('save_position', {
+        x: Math.round(pos.x / factor),
+        y: Math.round(pos.y / factor),
+      });
     } catch {
       // Fallback
     }
-
-    // 2. Active mousemove fallback tracker to guarantee dragging everywhere
-    let lastX = e.screenX;
-    let lastY = e.screenY;
-
-    const handleMouseMove = async (moveEvent: MouseEvent) => {
-      const deltaX = moveEvent.screenX - lastX;
-      const deltaY = moveEvent.screenY - lastY;
-      lastX = moveEvent.screenX;
-      lastY = moveEvent.screenY;
-
-      if (Math.abs(deltaX) > 0 || Math.abs(deltaY) > 0) {
-        try {
-          await invoke('move_window', { deltaX, deltaY });
-        } catch {
-          // Fallback
-        }
-      }
-    };
-
-    const handleMouseUp = async () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      try {
-        const win = getCurrentWindow();
-        const pos = await win.outerPosition();
-        const factor = await win.scaleFactor();
-        await invoke('save_position', {
-          x: Math.round(pos.x / factor),
-          y: Math.round(pos.y / factor),
-        });
-      } catch {
-        // Fallback
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
   };
 
   // Measure title overflow to trigger smooth ping-pong marquee
@@ -181,7 +155,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
   };
 
   return (
-    <div className="w-full h-full flex items-center justify-center p-0 m-0 bg-transparent overflow-hidden">
+    <div className="w-full h-full flex items-center justify-center p-0 m-0 bg-transparent overflow-hidden pointer-events-none">
       {/* Entire Capsule is Fully Draggable */}
       <div
         data-tauri-drag-region
@@ -189,7 +163,7 @@ export const DynamicIsland: React.FC<DynamicIslandProps> = ({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onDoubleClick={onExpand}
-        className={`group relative flex items-center justify-between h-[44px] px-2.5 py-1 gap-2.5 rounded-full backdrop-blur-[36px] backdrop-saturate-[220%] select-none cursor-grab active:cursor-grabbing transition-all duration-300 ease-out ${
+        className={`pointer-events-auto group relative flex items-center justify-between h-[44px] px-2.5 py-1 gap-2.5 rounded-full backdrop-blur-[36px] backdrop-saturate-[220%] select-none cursor-grab active:cursor-grabbing transition-all duration-300 ease-out ${
           isLight ? 'text-neutral-900' : 'text-white'
         }`}
         style={{

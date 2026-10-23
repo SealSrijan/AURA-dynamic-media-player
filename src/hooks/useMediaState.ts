@@ -28,7 +28,7 @@ export function useMediaState() {
   const [isBrowserLinked, setIsBrowserLinked] = useState<boolean>(false);
   const [currentPositionMs, setCurrentPositionMs] = useState<number>(0);
 
-  const lastServerUpdateRef = useRef<number>(Date.now());
+  const lastServerUpdateRef = useRef<number>(0);
   const basePositionRef = useRef<number>(0);
 
   // Initial fetch
@@ -71,7 +71,7 @@ export function useMediaState() {
         setSessions(sess);
         const linked = await invoke<boolean>('is_browser_connected');
         setIsBrowserLinked(linked);
-      } catch (_) {}
+      } catch {}
     }, 4000);
 
     return () => {
@@ -102,27 +102,48 @@ export function useMediaState() {
 
   // Actions
   const togglePlayPause = async () => {
-    // Optimistic UI update
-    setMedia((prev) => ({
-      ...prev,
-      status: prev.status === 'Playing' ? 'Paused' : 'Playing',
-    }));
-    await invoke('media_toggle');
+    const previousStatus = media.status;
+    const nextStatus = previousStatus === 'Playing' ? 'Paused' : 'Playing';
+    setMedia((prev) => ({ ...prev, status: nextStatus }));
+
+    try {
+      const ok = await invoke<boolean>('media_toggle');
+      if (!ok) {
+        // Rollback if native call returned false
+        setMedia((prev) => ({ ...prev, status: previousStatus }));
+      }
+    } catch (err) {
+      console.warn('Playback toggle failed, rolling back:', err);
+      setMedia((prev) => ({ ...prev, status: previousStatus }));
+    }
   };
 
   const nextTrack = async () => {
-    await invoke('media_next');
+    try {
+      await invoke('media_next');
+    } catch (err) {
+      console.warn('Next track failed:', err);
+    }
   };
 
   const prevTrack = async () => {
-    await invoke('media_prev');
+    try {
+      await invoke('media_prev');
+    } catch (err) {
+      console.warn('Prev track failed:', err);
+    }
   };
 
   const seekTo = async (ms: number) => {
-    basePositionRef.current = ms;
+    const safeMs = Math.max(0, Math.floor(ms));
+    basePositionRef.current = safeMs;
     lastServerUpdateRef.current = Date.now();
-    setCurrentPositionMs(ms);
-    await invoke('media_seek', { positionMs: ms });
+    setCurrentPositionMs(safeMs);
+    try {
+      await invoke('media_seek', { positionMs: safeMs });
+    } catch (err) {
+      console.warn('Media seek failed:', err);
+    }
   };
 
   const switchSession = async (sourceId: string | null) => {

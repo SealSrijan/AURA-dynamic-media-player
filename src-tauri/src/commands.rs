@@ -71,17 +71,62 @@ pub async fn is_browser_connected(state: tauri::State<'_, AppState>) -> Result<b
 }
 
 #[tauri::command]
+pub fn get_mode_dimensions(mode: &str, capsule_size: &str, is_hovered: bool) -> (f64, f64) {
+    match mode {
+        "taskbar" => (280.0, 42.0),
+        "expanded" => (360.0, 270.0),
+        "settings" => (420.0, 480.0),
+        _ => {
+            // "island" or "compact"
+            if is_hovered {
+                (380.0, 48.0)
+            } else {
+                match capsule_size {
+                    "compact" => (228.0, 48.0),
+                    "large" => (284.0, 48.0),
+                    _ => (256.0, 48.0), // "standard"
+                }
+            }
+        }
+    }
+}
+
+pub fn calculate_snap_position(
+    corner: &str,
+    screen_w: f64,
+    screen_h: f64,
+    win_w: f64,
+    win_h: f64,
+) -> (f64, f64) {
+    let margin = 24.0;
+    let taskbar_offset = 56.0;
+
+    let (x, y) = match corner {
+        "top-center" => ((screen_w - win_w) / 2.0, margin),
+        "taskbar" => {
+            let tray_offset = 220.0;
+            (screen_w - win_w - tray_offset, screen_h - win_h - 3.0)
+        }
+        "bottom-left" => (margin, screen_h - win_h - taskbar_offset),
+        "top-right" => (screen_w - win_w - margin, margin),
+        "top-left" => (margin, margin),
+        "center" => ((screen_w - win_w) / 2.0, (screen_h - win_h) / 2.0),
+        _ => (screen_w - win_w - margin, screen_h - win_h - taskbar_offset), // "bottom-right"
+    };
+
+    let clamped_x = x.clamp(0.0, (screen_w - win_w).max(0.0));
+    let clamped_y = y.clamp(0.0, (screen_h - win_h).max(0.0));
+    (clamped_x, clamped_y)
+}
+
+#[tauri::command]
 pub fn set_player_mode(
     window: WebviewWindow,
     mode: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
-    let (width, height) = match mode.as_str() {
-        "taskbar" => (280.0, 42.0),
-        "expanded" => (360.0, 270.0),
-        "settings" => (420.0, 480.0),
-        _ => (390.0, 56.0), // "island" default (allows smooth hover expand inside 390x56 transparent bounds)
-    };
+    let config = state.config_manager.load();
+    let (width, height) = get_mode_dimensions(&mode, &config.capsule_size, false);
 
     let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
 
@@ -120,6 +165,52 @@ pub fn set_player_mode(
 }
 
 #[tauri::command]
+pub fn set_island_hover(
+    expanded: bool,
+    window: WebviewWindow,
+    state: tauri::State<'_, AppState>,
+) -> Result<(), String> {
+    let config = state.config_manager.load();
+    if config.player_mode != "island" && config.player_mode != "compact" {
+        return Ok(());
+    }
+
+    let (old_w, _) = get_mode_dimensions(&config.player_mode, &config.capsule_size, !expanded);
+    let (new_w, new_h) = get_mode_dimensions(&config.player_mode, &config.capsule_size, expanded);
+
+    if let Ok(Some(monitor)) = window.current_monitor() {
+        let scale = monitor.scale_factor();
+        let screen_w = monitor.size().width as f64 / scale;
+
+        if let Ok(pos) = window.outer_position() {
+            let cur_x = pos.x as f64 / scale;
+            let cur_y = pos.y as f64 / scale;
+
+            // Expand or contract symmetrically around the center
+            let delta_w = new_w - old_w;
+            let shifted_x = cur_x - (delta_w / 2.0);
+            let clamped_x = shifted_x.clamp(8.0, (screen_w - new_w - 8.0).max(8.0));
+
+            let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize {
+                width: new_w,
+                height: new_h,
+            }));
+            let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition {
+                x: clamped_x,
+                y: cur_y,
+            }));
+        }
+    } else {
+        let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize {
+            width: new_w,
+            height: new_h,
+        }));
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 pub fn set_always_on_top(
     window: WebviewWindow,
     enabled: bool,
@@ -144,25 +235,11 @@ pub fn snap_to_corner(
         let screen_w = screen_size.width as f64 / scale;
         let screen_h = screen_size.height as f64 / scale;
 
-        let cur_size = window.outer_size().unwrap_or(tauri::PhysicalSize { width: 360, height: 74 });
+        let cur_size = window.outer_size().unwrap_or(tauri::PhysicalSize { width: 256, height: 48 });
         let w = cur_size.width as f64 / scale;
         let h = cur_size.height as f64 / scale;
 
-        let margin = 24.0;
-        let taskbar_offset = 56.0; // Typical Windows taskbar
-
-        let (x, y) = match corner.as_str() {
-            "taskbar" => {
-                // Dock directly in the taskbar strip, aligned to the left of the system tray clock
-                let tray_offset = 220.0;
-                (screen_w - w - tray_offset, screen_h - h - 3.0)
-            }
-            "bottom-left" => (margin, screen_h - h - taskbar_offset),
-            "top-right" => (screen_w - w - margin, margin),
-            "top-left" => (margin, margin),
-            "center" => ((screen_w - w) / 2.0, (screen_h - h) / 2.0),
-            _ => (screen_w - w - margin, screen_h - h - taskbar_offset), // "bottom-right"
-        };
+        let (x, y) = calculate_snap_position(&corner, screen_w, screen_h, w, h);
 
         let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
 
@@ -193,17 +270,18 @@ pub fn reset_position(
     window: WebviewWindow,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
+    let config = state.config_manager.load();
+    let (width, height) = get_mode_dimensions("island", &config.capsule_size, false);
+
+    let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
+
     if let Ok(Some(monitor)) = window.current_monitor() {
         let scale = monitor.scale_factor();
         let screen_w = monitor.size().width as f64 / scale;
-        let width = 390.0;
-        let height = 56.0;
-
-        let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
 
         // Position at top center of primary monitor (Dynamic Island aesthetic)
         let x = (screen_w - width) / 2.0;
-        let y = 32.0;
+        let y = 28.0;
 
         let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition { x, y }));
 
@@ -222,14 +300,15 @@ pub fn dock_to_taskbar(
     window: WebviewWindow,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
+    let width = 280.0;
+    let height = 42.0;
+
+    let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
+
     if let Ok(Some(monitor)) = window.current_monitor() {
         let scale = monitor.scale_factor();
         let screen_w = monitor.size().width as f64 / scale;
         let screen_h = monitor.size().height as f64 / scale;
-        let width = 280.0;
-        let height = 42.0;
-
-        let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
 
         // Place flush against the bottom taskbar, left of system tray icons
         let x = screen_w - width - 200.0;
@@ -252,14 +331,15 @@ pub fn undock_from_taskbar(
     window: WebviewWindow,
     state: tauri::State<'_, AppState>,
 ) -> Result<(), String> {
+    let config = state.config_manager.load();
+    let (width, height) = get_mode_dimensions("island", &config.capsule_size, false);
+
+    let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
+
     if let Ok(Some(monitor)) = window.current_monitor() {
         let scale = monitor.scale_factor();
         let screen_w = monitor.size().width as f64 / scale;
         let screen_h = monitor.size().height as f64 / scale;
-        let width = 390.0;
-        let height = 56.0;
-
-        let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize { width, height }));
 
         // Float 90px above the taskbar
         let x = screen_w - width - 30.0;
@@ -304,4 +384,40 @@ pub fn move_window(delta_x: f64, delta_y: f64, window: WebviewWindow) -> Result<
 #[tauri::command]
 pub fn quit_app(app: AppHandle) {
     app.exit(0);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mode_dimensions() {
+        assert_eq!(get_mode_dimensions("taskbar", "standard", false), (280.0, 42.0));
+        assert_eq!(get_mode_dimensions("expanded", "standard", false), (360.0, 270.0));
+        assert_eq!(get_mode_dimensions("settings", "standard", false), (420.0, 480.0));
+        assert_eq!(get_mode_dimensions("island", "compact", false), (228.0, 48.0));
+        assert_eq!(get_mode_dimensions("island", "standard", false), (256.0, 48.0));
+        assert_eq!(get_mode_dimensions("island", "large", false), (284.0, 48.0));
+        assert_eq!(get_mode_dimensions("island", "standard", true), (380.0, 48.0));
+    }
+
+    #[test]
+    fn test_calculate_snap_positions() {
+        let screen_w = 1920.0;
+        let screen_h = 1080.0;
+        let win_w = 256.0;
+        let win_h = 48.0;
+
+        let (tc_x, tc_y) = calculate_snap_position("top-center", screen_w, screen_h, win_w, win_h);
+        assert_eq!(tc_x, (1920.0 - 256.0) / 2.0);
+        assert_eq!(tc_y, 24.0);
+
+        let (tl_x, tl_y) = calculate_snap_position("top-left", screen_w, screen_h, win_w, win_h);
+        assert_eq!(tl_x, 24.0);
+        assert_eq!(tl_y, 24.0);
+
+        let (center_x, center_y) = calculate_snap_position("center", screen_w, screen_h, win_w, win_h);
+        assert_eq!(center_x, (1920.0 - 256.0) / 2.0);
+        assert_eq!(center_y, (1080.0 - 48.0) / 2.0);
+    }
 }
